@@ -1,5 +1,6 @@
 #include <memory>
 #include <vector>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
@@ -10,6 +11,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/common/transforms.h>
+#include <Eigen/Dense>
 
 class GroundRemovalNode : public rclcpp::Node
 {
@@ -62,12 +65,25 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr no_ground(new pcl::PointCloud<pcl::PointXYZ>);
     extract.filter(*no_ground);
 
+    // Align cloud to ground plane
+    Eigen::Vector3f normal(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
+    normal.normalize();
+    Eigen::Vector3f up(0.0f, 0.0f, 1.0f);
+    Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+    if (!normal.isApprox(up)) {
+      Eigen::Vector3f axis = normal.cross(up);
+      float angle = acosf(normal.dot(up));
+      transform.block<3,3>(0,0) = Eigen::AngleAxisf(angle, axis.normalized()).toRotationMatrix();
+    }
+    pcl::PointCloud<pcl::PointXYZ>::Ptr aligned(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::transformPointCloud(*no_ground, *aligned, transform);
+
     // Create 2D occupancy grid
     int grid_size = get_parameter("grid_size").as_int();
     double resolution = get_parameter("grid_resolution").as_double();
     std::vector<int8_t> grid(grid_size * grid_size, 0);
 
-    for (const auto &p : no_ground->points) {
+    for (const auto &p : aligned->points) {
       int x = static_cast<int>((p.x / resolution) + grid_size / 2);
       int y = static_cast<int>((p.y / resolution) + grid_size / 2);
       if (x >= 0 && x < grid_size && y >= 0 && y < grid_size) {
