@@ -5,4 +5,4 @@ Agent–User conversation: Use Korean (한국어)
 코드는 src 파일 안에 작성
 
 # 요구사항
-3D Lidar의 pointcloud2 토픽을 입력받아서(토픽 이름은 "ouster/points") 지면 제거 후 Spatio Temporal Voxel Layer (STVL) 참고하여 2d costmap을 발행한다.
+지금은 단일 평면에 맞춘 지면제거 기능이라 경사가 있는 평면에서 사용하려는 목적에 부합하지 않음 경사가 있는 평면에서 지면제거 후 2d costmap 토픽을 발행하게 수정 필요
